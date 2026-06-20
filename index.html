@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SCDP - سامانه مدیریت پروژه کارگاه</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+
+<!-- Sidebar -->
+<div class="sidebar" id="sidebar">
+  <div class="brand">
+    <h2>📊 SCDP</h2>
+    <small>سامانه مدیریت پروژه</small>
+  </div>
+  <ul class="nav">
+    <li><a href="#" data-tab="dashboard" class="active"><i class="fas fa-chart-pie"></i> داشبورد</a></li>
+    <li><a href="#" data-tab="dailylog"><i class="fas fa-pen"></i> فعالیت روزانه</a></li>
+    <li><a href="#" data-tab="actionplan"><i class="fas fa-clipboard-list"></i> اکشن پلن</a></li>
+    <li><a href="#" data-tab="personnel"><i class="fas fa-users"></i> منابع انسانی</a></li>
+    <li><a href="#" data-tab="attendance"><i class="fas fa-calendar-check"></i> حضور و غیاب</a></li>
+    <li><a href="#" data-tab="reports"><i class="fas fa-file-alt"></i> گزارشات</a></li>
+    <li><a href="#" data-tab="database"><i class="fas fa-database"></i> دیتابیس</a></li>
+    <li><a href="#" data-tab="settings"><i class="fas fa-cog"></i> تنظیمات</a></li>
+  </ul>
+</div>
+
+<!-- Main Content -->
+<div class="main-content">
+  <div class="d-flex align-center justify-between mb-3">
+    <button class="btn btn-outline" id="menuToggle"><i class="fas fa-bars"></i></button>
+    <div>
+      <h1 id="pageTitle" style="font-size:22px;font-weight:700;">داشبورد مدیریت</h1>
+      <small class="text-muted" id="todayDisplay"></small>
+    </div>
+  </div>
+
+  <!-- ==================== TAB: DASHBOARD ==================== -->
+  <div class="tab-content active" id="tab-dashboard">
+    <div class="grid-4 mb-3">
+      <div class="stat-card bg-primary">
+        <div class="stat-icon"><i class="fas fa-coins"></i></div>
+        <div class="stat-label">درآمد واقعی امروز</div>
+        <div class="stat-value" id="statTodayActual">0</div>
+      </div>
+      <div class="stat-card bg-warning">
+        <div class="stat-icon"><i class="fas fa-hand-holding-usd"></i></div>
+        <div class="stat-label">هزینه دستمزد امروز</div>
+        <div class="stat-value" id="statTodayWage">0</div>
+      </div>
+      <div class="stat-card bg-success">
+        <div class="stat-icon"><i class="fas fa-chart-line"></i></div>
+        <div class="stat-label">سود / زیان امروز</div>
+        <div class="stat-value" id="statTodayPL">0</div>
+      </div>
+      <div class="stat-card bg-danger">
+        <div class="stat-icon"><i class="fas fa-bullseye"></i></div>
+        <div class="stat-label">ارزش کل اکشن پلن</div>
+        <div class="stat-value" id="statPlanTotal">0</div>
+      </div>
+    </div>
+
+    <div class="grid-4 mb-3">
+      <div class="card">
+        <div class="card-header">درآمد واقعی ماه</div>
+        <div class="stat-value text-success" id="statMonthActual" style="font-size:20px;">0</div>
+      </div>
+      <div class="card">
+        <div class="card-header">درصد پیشرفت</div>
+        <div class="stat-value text-primary" id="statProgress" style="font-size:28px;">0%</div>
+        <div class="text-muted" id="statProgressDetail" style="font-size:12px;"></div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-header">روند روزانه درآمد و هزینه</div>
+        <div class="chart-container"><canvas id="dailyTrendChart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-header">توزیع فعالیت‌ها بر اساس بخش</div>
+        <div class="chart-container"><canvas id="deptPieChart"></canvas></div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-header">پیشرفت اکشن پلن</div>
+        <div class="chart-container"><canvas id="progressChart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-header">سود و زیان روزانه</div>
+        <div class="chart-container"><canvas id="profitChart"></canvas></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">آخرین فعالیت‌های ثبت شده</div>
+      <div class="table-wrap">
+        <table>
+          <tr><th>تاریخ</th><th>بخش</th><th>فعالیت</th><th>مقدار</th><th>واحد</th></tr>
+          <tbody id="recentLogsBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== TAB: DAILY LOG ==================== -->
+  <div class="tab-content" id="tab-dailylog">
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-header">ثبت فعالیت جدید</div>
+        <form id="logForm">
+          <div class="form-group">
+            <label>تاریخ (شمسی)</label>
+            <input class="form-control" id="logDate" required>
+          </div>
+          <div class="form-group">
+            <label>فعالیت</label>
+            <select class="form-control" id="logItem" required></select>
+          </div>
+          <div class="grid-2">
+            <div class="form-group">
+              <label>MainActivity</label>
+              <input class="form-control" id="logMain" readonly>
+            </div>
+            <div class="form-group">
+              <label>SubActivity</label>
+              <input class="form-control" id="logSub" readonly>
+            </div>
+          </div>
+          <div class="grid-2">
+            <div class="form-group">
+              <label>مقدار</label>
+              <input class="form-control" id="logQty" type="number" step="any" required>
+            </div>
+            <div class="form-group">
+              <label>واحد</label>
+              <select class="form-control" id="logUnit">
+                <option value="NO.">عدد</option>
+                <option value="mL">متر</option>
+                <option value="KG">کیلوگرم</option>
+                <option value="Set">ست</option>
+                <option value="Pcs">قطعه</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>توضیحات</label>
+            <textarea class="form-control" id="logNote" rows="2"></textarea>
+          </div>
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary">ثبت فعالیت</button>
+            <button type="button" class="btn btn-outline" id="logCancel" style="display:none;" onclick="cancelEdit()">انصراف</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="card">
+        <div class="card-header">آمار امروز</div>
+        <div id="dailyStats"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span>لیست فعالیت‌های ثبت شده <span id="dailyLogCount" class="badge badge-primary">0</span></span>
+        <input class="form-control" id="logSearch" placeholder="جستجو در فعالیت‌ها..." style="width:250px;">
+      </div>
+      <div class="table-wrap">
+        <table>
+          <tr><th>تاریخ</th><th>بخش</th><th>Main</th><th>Sub</th><th>فعالیت</th><th>مقدار</th><th>واحد</th><th>عملیات</th></tr>
+          <tbody id="dailyLogBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== TAB: ACTION PLAN ==================== -->
+  <div class="tab-content" id="tab-actionplan">
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-header">افزودن آیتم به اکشن پلن</div>
+        <form id="planForm">
+          <div class="form-group">
+            <label>بخش اجرایی</label>
+            <select class="form-control" id="planDept" required>
+              <option value="">انتخاب بخش...</option>
+              <option value="Electrical">برق (Electrical)</option>
+              <option value="Telecome">مخابرات (Telecome)</option>
+              <option value="EARTH">ارتینگ (EARTH)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>فعالیت</label>
+            <select class="form-control" id="planActivity" required></select>
+          </div>
+          <div class="grid-2">
+            <div class="form-group">
+              <label>مقدار</label>
+              <input class="form-control" id="planQty" type="number" step="any" required>
+            </div>
+            <div class="form-group">
+              <label>واحد</label>
+              <select class="form-control" id="planUnit">
+                <option value="NO.">عدد</option>
+                <option value="mL">متر</option>
+                <option value="KG">کیلوگرم</option>
+                <option value="Set">ست</option>
+                <option value="Pcs">قطعه</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>قیمت واحد (ریال)</label>
+            <input class="form-control" id="planUnitPrice" type="number" step="any" required>
+          </div>
+          <button type="submit" class="btn btn-primary">افزودن به اکشن پلن</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <div class="card-header">خلاصه اکشن پلن</div>
+        <div class="mb-2"><strong>تعداد آیتم‌ها:</strong> <span id="planItemCount">0</span></div>
+        <div class="mb-2"><strong>جمع کل:</strong> <span id="planTotal" class="fw-7 text-success">0</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">لیست اکشن پلن</div>
+      <div class="table-wrap">
+        <table>
+          <tr><th>بخش</th><th>فعالیت</th><th>مقدار</th><th>واحد</th><th>قیمت واحد</th><th>قیمت کل</th><th>عملیات</th></tr>
+          <tbody id="planBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== TAB: PERSONNEL ==================== -->
+  <div class="tab-content" id="tab-personnel">
+    <div class="grid-2 mb-3">
+      <div class="card">
+        <div class="card-header">آمار منابع انسانی</div>
+        <div class="mb-2"><strong>تعداد پرسنل فعال:</strong> <span id="personnelCount">0</span></div>
+        <div class="mb-2"><strong>جمع دستمزد روزانه:</strong> <span id="totalWage" class="fw-7 text-warning">0</span></div>
+      </div>
+      <div class="card">
+        <div class="card-header">راهنما</div>
+        <p class="text-muted" style="font-size:13px;">برای افزودن پرسنل جدید از دکمه "افزودن ردیف" استفاده کنید. پس از تکمیل اطلاعات، دکمه "ذخیره" را بزنید.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span>لیست پرسنل</span>
+        <div class="d-flex gap-2">
+          <button class="btn btn-success" id="addPersonnelRow"><i class="fas fa-plus"></i> افزودن ردیف</button>
+        </div>
+      </div>
+      <form id="personnelForm">
+        <div class="table-wrap">
+          <table>
+            <tr><th>عنوان شغلی</th><th>نام و نام خانوادگی</th><th>دستمزد روزانه (ریال)</th><th>نوع قرارداد</th><th>فعال</th><th>عملیات</th></tr>
+            <tbody id="personnelBody"></tbody>
+          </table>
+        </div>
+        <div class="mt-3">
+          <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> ذخیره</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== TAB: ATTENDANCE ==================== -->
+  <div class="tab-content" id="tab-attendance">
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-header">ثبت حضور و غیاب روزانه</div>
+        <form id="attendanceForm">
+          <div class="form-group">
+            <label>تاریخ (شمسی)</label>
+            <input class="form-control" id="attendanceDate" required>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <tr><th>نام</th><th>سمت</th><th>وضعیت</th></tr>
+              <tbody id="attendanceBody"></tbody>
+            </table>
+          </div>
+          <div class="mt-3">
+            <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> ذخیره حضور و غیاب</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="card">
+        <div class="card-header">خلاصه ماهانه حضور و غیاب</div>
+        <div class="table-wrap">
+          <table>
+            <tr><th>نام</th><th>حاضر</th><th>غایب</th><th>مرخصی</th><th>ماموریت</th><th>قابل پرداخت</th></tr>
+            <tbody id="attSummaryBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== TAB: REPORTS ==================== -->
+  <div class="tab-content" id="tab-reports">
+    <div class="grid-3 mb-3">
+      <div class="card">
+        <div class="card-header">گزارش روزانه</div>
+        <p class="text-muted mb-3">خلاصه درآمد، هزینه و سود/زیان امروز</p>
+        <button class="btn btn-primary" id="reportDaily"><i class="fas fa-file-pdf"></i> دریافت PDF</button>
+      </div>
+      <div class="card">
+        <div class="card-header">گزارش ماهانه</div>
+        <p class="text-muted mb-3">خلاصه عملکرد ماهانه با پیشرفت اکشن پلن</p>
+        <button class="btn btn-primary" id="reportMonthly"><i class="fas fa-file-pdf"></i> دریافت PDF</button>
+      </div>
+      <div class="card">
+        <div class="card-header">گزارش کامل</div>
+        <p class="text-muted mb-3">گزارش جامع روزانه و ماهانه به همراه تفکیک</p>
+        <button class="btn btn-primary" id="reportFull"><i class="fas fa-file-pdf"></i> دریافت PDF</button>
+      </div>
+    </div>
+
+    <div class="grid-3 mb-3">
+      <div class="card">
+        <div class="card-header">خروجی اکسل</div>
+        <p class="text-muted mb-3">خروجی کامل دیتابیس به صورت Excel</p>
+        <button class="btn btn-success" id="reportExcel"><i class="fas fa-file-excel"></i> دریافت Excel</button>
+      </div>
+      <div class="card">
+        <div class="card-header">چاپ گزارش</div>
+        <p class="text-muted mb-3">نسخه قابل چاپ از صفحه</p>
+        <button class="btn btn-outline" id="reportPrint"><i class="fas fa-print"></i> چاپ</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">گزارش تفکیک بخش</div>
+      <div class="form-group">
+        <label>انتخاب بخش</label>
+        <select class="form-control" id="reportDept">
+          <option value="">انتخاب...</option>
+          <option value="Electrical">برق (Electrical)</option>
+          <option value="Telecome">مخابرات (Telecome)</option>
+          <option value="EARTH">ارتینگ (EARTH)</option>
+        </select>
+      </div>
+      <div id="deptReportContainer"></div>
+    </div>
+  </div>
+
+  <!-- ==================== TAB: DATABASE ==================== -->
+  <div class="tab-content" id="tab-database">
+    <div class="grid-3 mb-3">
+      <div class="card">
+        <div class="card-header">آمار دیتابیس</div>
+        <div class="mb-2"><strong>فعالیت‌های ثبت شده:</strong> <span id="dbLogCount">0</span></div>
+        <div class="mb-2"><strong>آیتم‌های اکشن پلن:</strong> <span id="dbPlanCount">0</span></div>
+        <div class="mb-2"><strong>پرسنل:</strong> <span id="dbPersonnelCount">0</span></div>
+      </div>
+      <div class="card">
+        <div class="card-header">ورود اطلاعات</div>
+        <p class="text-muted mb-3">فایل Excel دیتابیس را بارگذاری کنید</p>
+        <input type="file" id="excelFile" accept=".xlsx,.xls" style="display:none;">
+        <button class="btn btn-primary" id="importBtn"><i class="fas fa-file-import"></i> بارگذاری Excel</button>
+      </div>
+      <div class="card">
+        <div class="card-header">خروجی اطلاعات</div>
+        <p class="text-muted mb-3">خروجی Excel از تمام داده‌ها</p>
+        <button class="btn btn-success" id="exportBtn"><i class="fas fa-file-export"></i> خروجی Excel</button>
+        <div class="mt-2">
+          <button class="btn btn-danger" id="resetBtn"><i class="fas fa-trash"></i> پاک کردن همه داده‌ها</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">راهنمای دیتابیس</div>
+      <div style="font-size:13px;line-height:1.8;">
+        <p>📌 <strong>ساختار فایل Excel:</strong> فایل شما باید شامل شیت‌های زیر باشد:</p>
+        <ul style="padding-right:20px;">
+          <li><strong>ActionPlan</strong> - ستون‌ها: بخش اجرایی، نام فعالیت، مقدار، واحد، قیمت واحد، قیمت کل</li>
+          <li><strong>DailyLogs</strong> - ستون‌ها: تاریخ، بخش، MainActivity، SubActivity، نام فعالیت، مقدار، واحد، توضیحات</li>
+          <li><strong>Personnel</strong> - ستون‌ها: عنوان شغلی، نام و نام خانوادگی، دستمزد روزانه، نوع قرارداد، فعال</li>
+          <li><strong>Attendance</strong> - ستون‌ها: تاریخ، نام، عنوان شغلی، وضعیت</li>
+          <li><strong>Settings</strong> - کلید و مقدار برای تنظیمات</li>
+        </ul>
+        <p class="mt-2">📌 می‌توانید از دکمه "خروجی Excel" یک نمونه خالی دریافت کنید.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== TAB: SETTINGS ==================== -->
+  <div class="tab-content" id="tab-settings">
+    <div class="card" style="max-width:500px;">
+      <div class="card-header">تنظیمات سیستم</div>
+      <form id="settingsForm">
+        <div class="grid-2">
+          <div class="form-group">
+            <label>سال جاری (شمسی)</label>
+            <input class="form-control" id="setYear" type="number" required>
+          </div>
+          <div class="form-group">
+            <label>ماه جاری (شمسی)</label>
+            <input class="form-control" id="setMonth" type="number" min="1" max="12" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>جمع دستمزد روزانه کارگاه (ریال)</label>
+          <input class="form-control" id="setWage" type="number" step="any" required>
+        </div>
+        <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> ذخیره تنظیمات</button>
+      </form>
+    </div>
+  </div>
+
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/reports.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
